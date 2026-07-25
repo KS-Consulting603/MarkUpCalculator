@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sell-Side Pricing Calculator | Swisset Tool Company</title>
+<meta name="description" content="Converts foreign-currency vendor cost to a USD selling price with a margin and tariff, across multiple currencies." />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzFkMjIyNiIvPgogIDxwYXRoIGQ9Ik05IDIxIEwyMyAxMSBNMTcgMTFoNnY2IiBzdHJva2U9IiNlZWVjZTQiIHN0cm9rZS13aWR0aD0iMi40IiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1d2226; --ink-soft: #4b545c; --steel-900: #232a30; --steel-700: #3a444c;
+  --paper: #f2f1ec; --surface: #ffffff; --hairline: #d9d6cd; --hairline-strong: #b9b6ac;
+  --accent: #b6531f; --accent-soft: #f0e2d5; --focus: #2b6ea8;
+  --lcd-bg: #1a2332; --lcd-fg: #eeece4; --lcd-fg-dim: #929cb0;
+  --panel-up: #4f9d75; --panel-down: #c2564a;
+  --font-display: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: var(--font-display); }
+body { background-image: linear-gradient(var(--hairline) 1px, transparent 1px); background-size: 100% 32px; background-attachment: local; }
+a { color: var(--steel-700); }
+.frame { max-width: 1240px; margin: 0 auto; padding: 28px 24px 64px; }
+
+.masthead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 18px; border-bottom: 3px solid var(--ink); margin-bottom: 18px; }
+.masthead__eyebrow { display: block; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.masthead__title { margin: 0; font-size: clamp(20px, 3vw, 28px); font-weight: 700; letter-spacing: -0.01em; }
+.masthead__sub { margin: 6px 0 0; font-size: 13px; color: var(--ink-soft); max-width: 62ch; }
+
+.banner { background: var(--accent-soft); border: 1px solid var(--accent); color: #6f3813; font-size: 13px; padding: 10px 14px; border-radius: 4px; margin-bottom: 16px; }
+
+/* Settings + rate readout panel */
+.settings-panel { background: var(--lcd-bg); border-radius: 6px; padding: 14px 18px; margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-end; }
+.settings-field { display: flex; flex-direction: column; gap: 4px; }
+.settings-field label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lcd-fg-dim); }
+.settings-field input {
+  font-family: var(--font-mono); font-size: 16px; font-weight: 600; color: var(--lcd-fg);
+  background: rgba(238,236,228,0.06); border: 1px solid var(--lcd-fg-dim); border-radius: 4px; padding: 6px 9px; width: 90px;
+}
+.settings-field input:focus { outline: none; border-color: var(--lcd-fg); }
+.settings-field .unit { font-size: 13px; color: var(--lcd-fg-dim); margin-left: 4px; }
+
+.rate-readout { flex: 1; min-width: 240px; }
+.rate-readout__label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lcd-fg-dim); margin-bottom: 6px; }
+.rate-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.rate-chip {
+  font-family: var(--font-mono); font-size: 12px; color: var(--lcd-fg); background: rgba(238,236,228,0.08);
+  border: 1px solid var(--lcd-fg-dim); border-radius: 4px; padding: 5px 9px;
+}
+.rate-chip b { color: var(--lcd-fg); }
+.rate-chip span { color: var(--lcd-fg-dim); }
+.rate-chip.stale { border-color: var(--panel-down); color: var(--panel-down); }
+
+.update-btn {
+  appearance: none; border: 1px solid var(--lcd-fg-dim); background: rgba(238,236,228,0.06); color: var(--lcd-fg);
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 10px 16px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.update-btn:hover { background: rgba(238,236,228,0.14); }
+.update-btn:focus-visible { outline: 2px solid var(--lcd-fg); outline-offset: 2px; }
+.update-btn[disabled] { opacity: 0.5; cursor: default; }
+
+/* Toolbar */
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.btn { font-family: var(--font-display); font-size: 13px; font-weight: 600; padding: 9px 14px; border-radius: 4px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+.btn:hover { border-color: var(--steel-700); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.btn--primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn--primary:hover { background: var(--steel-700); }
+.btn--ghost { background: transparent; border-color: transparent; color: var(--ink-soft); }
+.btn--ghost:hover { color: var(--ink); text-decoration: underline; }
+.toolbar__spacer { flex: 1; }
+.toolbar__link { font-family: var(--font-mono); font-size: 11.5px; color: var(--steel-700); align-self: center; }
+
+/* Table */
+.table-wrap { background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: 6px; overflow-x: auto; }
+table.ledger { width: 100%; border-collapse: collapse; min-width: 1180px; }
+.ledger thead th {
+  text-align: right; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--ink-soft); padding: 10px 10px 8px; border-bottom: 2px solid var(--ink); white-space: nowrap;
+}
+.ledger thead th span { display: block; font-size: 9px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--hairline-strong); }
+.ledger thead th.col-text, .ledger thead th.col-num:first-child { text-align: left; }
+.ledger thead th.editable { color: var(--accent); }
+
+.ledger tbody td { padding: 6px 8px; border-bottom: 1px solid var(--hairline); font-family: var(--font-mono); font-size: 13px; text-align: right; vertical-align: middle; white-space: nowrap; }
+.ledger tbody tr:hover { background: rgba(0,0,0,0.015); }
+.row-index { text-align: left; color: var(--hairline-strong); font-size: 12px; width: 24px; }
+.col-text { text-align: left; font-family: var(--font-display); min-width: 150px; }
+
+.cell-input { width: 100%; border: 1px solid transparent; background: transparent; font-family: inherit; font-size: inherit; color: var(--ink); text-align: right; padding: 5px 6px; border-radius: 3px; }
+.col-text .cell-input { text-align: left; }
+.cell-select { width: 100%; border: 1px solid transparent; background: transparent; font-family: inherit; font-size: inherit; color: var(--ink); padding: 5px 4px; border-radius: 3px; }
+.cell-input:hover, .cell-select:hover { border-color: var(--hairline-strong); }
+.cell-input:focus, .cell-select:focus { outline: none; border-color: var(--focus); background: #eef5fb; }
+.editable { background: linear-gradient(0deg, rgba(182,83,31,0.05), rgba(182,83,31,0.05)); }
+.computed { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.computed.rate-stale { color: var(--panel-down); }
+.col-action { width: 32px; text-align: center; }
+.row-remove { appearance: none; border: none; background: transparent; color: var(--hairline-strong); font-size: 16px; line-height: 1; cursor: pointer; width: 24px; height: 24px; border-radius: 4px; }
+.row-remove:hover { color: #a03a1c; background: var(--accent-soft); }
+
+tfoot td { padding: 12px 10px; font-family: var(--font-mono); border-top: 2px solid var(--ink); }
+.totals-label { text-align: right; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.totals-value { text-align: right; font-size: 16px; font-weight: 600; color: var(--ink); }
+#totalSelling { color: var(--accent); }
+
+.footnote { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; max-width: 90ch; margin: 18px 2px 0; }
+.footnote code { font-family: var(--font-mono); background: var(--hairline); padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
+.colophon { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--hairline); font-family: var(--font-mono); font-size: 11px; color: var(--hairline-strong); display: flex; gap: 8px; flex-wrap: wrap; }
+.colophon .dot { color: var(--hairline-strong); }
+.colophon a { color: var(--ink-soft); }
+
+@media print {
+  body { background: #fff; }
+  .toolbar, .banner, .colophon, .update-btn { display: none !important; }
+  .frame { padding: 0; max-width: none; }
+  .settings-panel { background: none; border: 1px solid #000; }
+  .settings-field label, .rate-readout__label, .rate-chip { color: #333 !important; }
+  .settings-field input, .rate-chip { color: #000 !important; border-color: #000 !important; background: none !important; }
+  .table-wrap { border-color: #000; overflow: visible; }
+  table.ledger { min-width: 0; }
+  #totalSelling { color: #000; }
+}
+
+@media (max-width: 640px) {
+  .masthead { flex-direction: column; align-items: stretch; }
+}
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <header class="masthead">
+    <div>
+      <span class="masthead__eyebrow">Swisset Tool Company &middot; Finance</span>
+      <h1 class="masthead__title">Sell-Side Pricing Calculator</h1>
+      <p class="masthead__sub">Converts a vendor cost in any supported currency into a USD selling price, at a set margin, plus a per-quote tariff.</p>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <div class="settings-panel">
+    <div class="settings-field">
+      <label for="marginInput">Margin</label>
+      <div><input type="number" id="marginInput" value="30" min="0" max="99" step="0.1" /><span class="unit">%</span></div>
+    </div>
+    <div class="settings-field">
+      <label for="bufferInput">Rate buffer</label>
+      <div><input type="number" id="bufferInput" value="5" min="0" max="50" step="0.1" /><span class="unit">%</span></div>
+    </div>
+    <div class="rate-readout">
+      <div class="rate-readout__label">Live rates (buffered) &middot; <span id="ratesUpdated">not fetched yet</span></div>
+      <div class="rate-chip-row" id="rateChips"></div>
+    </div>
+    <button type="button" class="update-btn" id="updateRatesBtn">Update Rates</button>
+  </div>
+
+  <div class="toolbar">
+    <button type="button" id="addRowBtn" class="btn btn--primary">+ Add quote</button>
+    <button type="button" id="exportBtn" class="btn">Export CSV</button>
+    <button type="button" id="printBtn" class="btn">Print</button>
+    <button type="button" id="clearBtn" class="btn btn--ghost">Clear all</button>
+    <span class="toolbar__spacer"></span>
+    <a class="toolbar__link" href="https://www.avalara.com/us/en/learn/guides/us-tariffs-by-country.html" target="_blank" rel="noopener">Check current tariff rates by country (Avalara) &rarr;</a>
+  </div>
+
+  <div class="table-wrap">
+    <table class="ledger" id="ledgerTable">
+      <thead>
+        <tr>
+          <th class="col-num">#</th>
+          <th class="col-text">Quote / vendor</th>
+          <th class="col-num editable">Currency</th>
+          <th class="col-num editable">Foreign cost</th>
+          <th class="col-num computed">Buffered rate<span>per USD</span></th>
+          <th class="col-num computed">USD cost</th>
+          <th class="col-num computed">Price at margin<span id="marginColHint">30% margin</span></th>
+          <th class="col-num editable">Tariff<span>%</span></th>
+          <th class="col-num computed">Tariff $</th>
+          <th class="col-num computed">Selling price</th>
+          <th class="col-action"></th>
+        </tr>
+      </thead>
+      <tbody id="ledgerBody"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="9" class="totals-label">Total selling price</td>
+          <td class="totals-value" id="totalSelling">$0.00</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <p class="footnote">
+    Foreign cost, currency, and tariff % are the only entered figures per row &mdash; everything else is calculated. The rate for
+    each currency is fetched live from Yahoo Finance through <a href="https://corsproxy.io" target="_blank" rel="noopener">corsproxy.io</a>
+    (free for a github.io URL, no key), then reduced by the rate buffer above before use &mdash; e.g. a 5% buffer on a rate of 0.88
+    uses 0.836, protecting against the exchange rate moving against you between quoting and paying. Tariff rates aren't published as
+    market data the way exchange rates are, so that column stays a manual entry &mdash; use the link above (a plain by-country
+    table, no product code needed) to check the current number before typing it in. It doesn't cover every country by name;
+    unlisted ones are almost always on the generic baseline rate rather than a special negotiated one. Nothing auto-refreshes;
+    rates only change when you click <strong>Update Rates</strong>.
+    Export CSV stamps the rates and margin used, for the record.
+  </p>
+
+  <footer class="colophon">
+    <span>Swisset Tool Company</span>
+    <span class="dot">&middot;</span>
+    <span>Internal sell-side pricing tool</span>
+    <span class="dot">&middot;</span>
+    <a href="https://github.com" id="repoLink">Source on GitHub</a>
+  </footer>
+
+</div>
+
+<template id="rowTemplate">
+  <tr>
+    <td class="col-num row-index"></td>
+    <td class="col-text"><input type="text" class="cell-input line-name" placeholder="Description (optional)" /></td>
+    <td class="col-num editable">
+      <select class="cell-select cell-currency">
+        <option value="CHF">CHF</option>
+        <option value="EUR">EUR</option>
+        <option value="PEN">PEN</option>
+        <option value="PHP">PHP</option>
+      </select>
+    </td>
+    <td class="col-num editable"><input type="number" class="cell-input cell-cost" min="0" step="0.01" placeholder="0.00" /></td>
+    <td class="col-num computed cell-rate">&ndash;</td>
+    <td class="col-num computed cell-usdcost">&ndash;</td>
+    <td class="col-num computed cell-marginprice">&ndash;</td>
+    <td class="col-num editable"><input type="number" class="cell-input cell-tariff" min="0" step="0.1" placeholder="0" /></td>
+    <td class="col-num computed cell-tariffamt">&ndash;</td>
+    <td class="col-num computed cell-sellingprice">&ndash;</td>
+    <td class="col-action"><button type="button" class="row-remove" title="Remove quote" aria-label="Remove quote">&times;</button></td>
+  </tr>
+</template>
+
+<script>
+(() => {
+  "use strict";
+
+  // Currency config — Yahoo ticker for each, all in the SAME "currency per
+  // 1 USD" convention (matching CHF=X). EUR specifically needs "EUR=X", NOT
+  // "EURUSD=X" — that ticker quotes USD-per-euro, the opposite direction,
+  // and would silently invert every EUR calculation if used here.
+  const CURRENCIES = {
+    CHF: { ticker: "CHF=X", name: "Swiss Franc" },
+    EUR: { ticker: "EUR=X", name: "Euro" },
+    PEN: { ticker: "PEN=X", name: "Peruvian Sol" },
+    PHP: { ticker: "PHP=X", name: "Philippine Peso" },
+  };
+
+  const STORAGE_KEY = "swisset-markup-calc-ledger-v1";
+  const RATE_CACHE_KEY = "swisset-markup-calc-rates-v1";
+  const SETTINGS_KEY = "swisset-markup-calc-settings-v1";
+
+  const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  const fxFmt = (n) => n.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
+  const els = {
+    banner: document.getElementById("banner"),
+    marginInput: document.getElementById("marginInput"),
+    bufferInput: document.getElementById("bufferInput"),
+    marginColHint: document.getElementById("marginColHint"),
+    ratesUpdated: document.getElementById("ratesUpdated"),
+    rateChips: document.getElementById("rateChips"),
+    updateRatesBtn: document.getElementById("updateRatesBtn"),
+    body: document.getElementById("ledgerBody"),
+    addRowBtn: document.getElementById("addRowBtn"),
+    exportBtn: document.getElementById("exportBtn"),
+    printBtn: document.getElementById("printBtn"),
+    clearBtn: document.getElementById("clearBtn"),
+    totalSelling: document.getElementById("totalSelling"),
+    rowTemplate: document.getElementById("rowTemplate"),
+    repoLink: document.getElementById("repoLink"),
+  };
+
+  let state = { rows: [], rates: {} }; // rates: { CHF: { raw, buffered, fetchedAt }, ... }
+
+  function showBanner(msg) { els.banner.textContent = msg; els.banner.hidden = false; }
+  function clearBanner() { els.banner.hidden = true; }
+
+  // ---------------------------------------------------------------
+  // Rows
+  // ---------------------------------------------------------------
+  function newRow() { return { name: "", currency: "CHF", cost: "", tariffPct: "" }; }
+
+  function loadRows() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch (_) { /* ignore corrupt storage */ }
+    return [newRow(), newRow(), newRow()];
+  }
+  function saveRows() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.rows)); }
+
+  function loadSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+      if (saved) {
+        if (Number.isFinite(saved.margin)) els.marginInput.value = saved.margin;
+        if (Number.isFinite(saved.buffer)) els.bufferInput.value = saved.buffer;
+      }
+    } catch (_) { /* ignore */ }
+  }
+  function saveSettings() {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      margin: parseFloat(els.marginInput.value) || 0,
+      buffer: parseFloat(els.bufferInput.value) || 0,
+    }));
+  }
+
+  function loadCachedRates() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(RATE_CACHE_KEY) || "null");
+      if (saved) state.rates = saved;
+    } catch (_) { /* ignore */ }
+  }
+  function saveCachedRates() { localStorage.setItem(RATE_CACHE_KEY, JSON.stringify(state.rates)); }
+
+  function renderRows() {
+    els.body.innerHTML = "";
+    state.rows.forEach((row, i) => {
+      const node = els.rowTemplate.content.firstElementChild.cloneNode(true);
+      node.dataset.index = i;
+      node.querySelector(".row-index").textContent = i + 1;
+
+      const nameInput = node.querySelector(".line-name");
+      const currencySelect = node.querySelector(".cell-currency");
+      const costInput = node.querySelector(".cell-cost");
+      const tariffInput = node.querySelector(".cell-tariff");
+
+      nameInput.value = row.name;
+      currencySelect.value = row.currency;
+      costInput.value = row.cost;
+      tariffInput.value = row.tariffPct;
+
+      nameInput.addEventListener("input", () => { row.name = nameInput.value; saveRows(); });
+      currencySelect.addEventListener("change", () => { row.currency = currencySelect.value; recalcAll(); saveRows(); });
+      costInput.addEventListener("input", () => {
+        if (parseFloat(costInput.value) < 0) costInput.value = "0";
+        row.cost = costInput.value; recalcAll(); saveRows();
+      });
+      tariffInput.addEventListener("input", () => {
+        if (parseFloat(tariffInput.value) < 0) tariffInput.value = "0";
+        row.tariffPct = tariffInput.value; recalcAll(); saveRows();
+      });
+
+      node.querySelector(".row-remove").addEventListener("click", () => {
+        state.rows.splice(i, 1);
+        if (state.rows.length === 0) state.rows.push(newRow());
+        saveRows();
+        renderRows();
+        recalcAll();
+      });
+
+      els.body.appendChild(node);
+    });
+    recalcAll();
+  }
+
+  // ---------------------------------------------------------------
+  // Calculations
+  // ---------------------------------------------------------------
+  function recalcRow(node, row) {
+    const cost = parseFloat(row.cost);
+    const tariffPct = parseFloat(row.tariffPct) || 0;
+    const marginPct = parseFloat(els.marginInput.value) || 0;
+    const rateInfo = state.rates[row.currency];
+
+    const rateCell = node.querySelector(".cell-rate");
+    const usdCostCell = node.querySelector(".cell-usdcost");
+    const marginPriceCell = node.querySelector(".cell-marginprice");
+    const tariffAmtCell = node.querySelector(".cell-tariffamt");
+    const sellingPriceCell = node.querySelector(".cell-sellingprice");
+
+    if (!rateInfo) {
+      rateCell.textContent = "click Update";
+      usdCostCell.textContent = "\u2013";
+      marginPriceCell.textContent = "\u2013";
+      tariffAmtCell.textContent = "\u2013";
+      sellingPriceCell.textContent = "\u2013";
+      return { usdCost: null, sellingPrice: null };
+    }
+
+    rateCell.textContent = fxFmt(rateInfo.buffered);
+    rateCell.classList.toggle("rate-stale", !!rateInfo.stale);
+
+    const usdCost = Number.isFinite(cost) ? cost / rateInfo.buffered : null;
+    const marginPrice = usdCost !== null ? usdCost / (1 - marginPct / 100) : null;
+    const tariffAmt = usdCost !== null ? usdCost * (tariffPct / 100) : null;
+    const sellingPrice = marginPrice !== null ? marginPrice + tariffAmt : null;
+
+    usdCostCell.textContent = usdCost !== null ? usdFmt.format(usdCost) : "\u2013";
+    marginPriceCell.textContent = marginPrice !== null ? usdFmt.format(marginPrice) : "\u2013";
+    tariffAmtCell.textContent = tariffAmt !== null ? usdFmt.format(tariffAmt) : "\u2013";
+    sellingPriceCell.textContent = sellingPrice !== null ? usdFmt.format(sellingPrice) : "\u2013";
+
+    return { usdCost, sellingPrice };
+  }
+
+  function recalcAll() {
+    els.marginColHint.textContent = `${parseFloat(els.marginInput.value) || 0}% margin`;
+    let total = 0;
+    document.querySelectorAll("#ledgerBody tr").forEach((node) => {
+      const row = state.rows[Number(node.dataset.index)];
+      if (!row) return;
+      const { sellingPrice } = recalcRow(node, row);
+      if (sellingPrice !== null) total += sellingPrice;
+    });
+    els.totalSelling.textContent = usdFmt.format(total);
+  }
+
+  // ---------------------------------------------------------------
+  // Live rates
+  // ---------------------------------------------------------------
+  function activeCurrencies() {
+    return [...new Set(state.rows.map((r) => r.currency))].filter((c) => CURRENCIES[c]);
+  }
+
+  function buildProxyUrl(ticker) {
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?_cb=${Date.now()}`;
+    return "https://corsproxy.io/?url=" + encodeURIComponent(yahooUrl);
+  }
+
+  async function fetchOneRate(code) {
+    const ticker = CURRENCIES[code].ticker;
+    const res = await fetch(buildProxyUrl(ticker), { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const raw = Number(data?.chart?.result?.[0]?.meta?.regularMarketPrice);
+    if (!raw || !Number.isFinite(raw)) throw new Error("Unexpected response shape");
+    return raw;
+  }
+
+  async function updateRates() {
+    const currencies = activeCurrencies();
+    if (currencies.length === 0) { showBanner("Add a quote with a currency first."); return; }
+
+    els.updateRatesBtn.disabled = true;
+    els.updateRatesBtn.textContent = "Updating\u2026";
+    clearBanner();
+
+    const bufferPct = parseFloat(els.bufferInput.value) || 0;
+    const results = await Promise.allSettled(currencies.map((c) => fetchOneRate(c)));
+
+    let anyFailed = false;
+    results.forEach((result, i) => {
+      const code = currencies[i];
+      if (result.status === "fulfilled") {
+        const raw = result.value;
+        const buffered = raw * (1 - bufferPct / 100);
+        state.rates[code] = { raw, buffered, fetchedAt: new Date().toISOString(), stale: false };
+      } else {
+        anyFailed = true;
+        console.error(`Rate fetch failed for ${code}:`, result.reason);
+        if (state.rates[code]) state.rates[code].stale = true;
+      }
+    });
+
+    saveCachedRates();
+    renderRateChips();
+    recalcAll();
+
+    els.updateRatesBtn.disabled = false;
+    els.updateRatesBtn.textContent = "Update Rates";
+    if (anyFailed) showBanner("One or more rates couldn't be fetched — using the last saved value where available, flagged in red.");
+  }
+
+  function renderRateChips() {
+    const currencies = activeCurrencies();
+    els.rateChips.innerHTML = "";
+    if (currencies.length === 0) {
+      els.rateChips.innerHTML = '<span class="rate-chip">no quotes yet</span>';
+      return;
+    }
+    currencies.forEach((code) => {
+      const info = state.rates[code];
+      const chip = document.createElement("span");
+      chip.className = "rate-chip" + (info?.stale ? " stale" : "");
+      chip.innerHTML = info
+        ? `<b>${code}</b> <span>${fxFmt(info.buffered)}</span>`
+        : `<b>${code}</b> <span>not fetched</span>`;
+      els.rateChips.appendChild(chip);
+    });
+
+    const latest = Object.values(state.rates).map((r) => new Date(r.fetchedAt).getTime()).filter(Boolean);
+    if (latest.length) {
+      const mostRecent = new Date(Math.max(...latest));
+      els.ratesUpdated.textContent = `checked ${mostRecent.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Toolbar
+  // ---------------------------------------------------------------
+  els.addRowBtn.addEventListener("click", () => {
+    state.rows.push(newRow());
+    saveRows();
+    renderRows();
+    renderRateChips();
+    const inputs = els.body.querySelectorAll("tr:last-child .cell-cost");
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
+  els.clearBtn.addEventListener("click", () => {
+    if (!confirm("Clear all quotes? This can't be undone.")) return;
+    state.rows = [newRow(), newRow(), newRow()];
+    saveRows();
+    renderRows();
+    renderRateChips();
+  });
+
+  els.updateRatesBtn.addEventListener("click", updateRates);
+  els.printBtn.addEventListener("click", () => window.print());
+
+  [els.marginInput, els.bufferInput].forEach((el) => {
+    el.addEventListener("input", () => {
+      if (parseFloat(el.value) < 0) el.value = "0";
+      saveSettings();
+      recalcAll();
+    });
+  });
+
+  els.exportBtn.addEventListener("click", () => {
+    const marginPct = parseFloat(els.marginInput.value) || 0;
+    const bufferPct = parseFloat(els.bufferInput.value) || 0;
+    const csvComment = (text) => `"${text.replace(/"/g, '""')}"`;
+
+    const rateLines = activeCurrencies().map((code) => {
+      const info = state.rates[code];
+      return csvComment(`# ${code} buffered rate: ${info ? fxFmt(info.buffered) : "N/A"}`);
+    });
+
+    const lines = [
+      csvComment(`# Margin: ${marginPct}%  |  Rate buffer: ${bufferPct}%  |  exported ${localTimestamp()}`),
+      ...rateLines,
+    ];
+    const header = ["Line", "Description", "Currency", "Foreign cost", "Buffered rate", "USD cost", "Price at margin", "Tariff %", "Tariff $", "Selling price"];
+    lines.push(header.join(","));
+
+    state.rows.forEach((row, i) => {
+      const cost = parseFloat(row.cost);
+      const tariffPct = parseFloat(row.tariffPct) || 0;
+      const rateInfo = state.rates[row.currency];
+      const usdCost = (rateInfo && Number.isFinite(cost)) ? cost / rateInfo.buffered : "";
+      const marginPrice = usdCost !== "" ? usdCost / (1 - marginPct / 100) : "";
+      const tariffAmt = usdCost !== "" ? usdCost * (tariffPct / 100) : "";
+      const sellingPrice = marginPrice !== "" ? marginPrice + tariffAmt : "";
+      const desc = `"${(row.name || "").replace(/"/g, '""')}"`;
+      lines.push([
+        i + 1, desc, row.currency, row.cost || "",
+        rateInfo ? fxFmt(rateInfo.buffered) : "",
+        usdCost, marginPrice, tariffPct, tariffAmt, sellingPrice,
+      ].join(","));
+    });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sell-side-pricing-${localDateStamp()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  function localDateStamp(d = new Date()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function localTimestamp(d = new Date()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const tz = (d.toString().match(/\(([^)]+)\)/) || [])[1];
+    return `${localDateStamp(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${tz ? " " + tz : ""}`;
+  }
+
+  if (els.repoLink && location.hostname.endsWith("github.io")) {
+    const [owner] = location.hostname.split(".");
+    const repo = location.pathname.split("/").filter(Boolean)[0];
+    if (owner && repo) els.repoLink.href = `https://github.com/${owner}/${repo}`;
+  }
+
+  // ---------------------------------------------------------------
+  // Init
+  // ---------------------------------------------------------------
+  loadSettings();
+  loadCachedRates();
+  state.rows = loadRows();
+  renderRows();
+  renderRateChips();
+})();
+</script>
+</body>
+</html>
